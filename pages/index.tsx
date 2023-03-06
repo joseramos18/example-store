@@ -1,43 +1,24 @@
 import api from "@/product/api";
-import { Product } from "@/product/types";
+import { CartItem, Product } from "@/product/types";
 import { GetStaticProps } from "next";
-import { FC, useMemo, useState } from "react";
-import { Button, Flex, Grid, Image, Link, Stack, Text } from "@chakra-ui/react";
-import {
-  motion,
-  AnimatePresence,
-} from "framer-motion";
+import { FC, useState } from "react";
+import { Button, Flex, Grid, Image, Stack, Text } from "@chakra-ui/react";
+import { motion, AnimatePresence } from "framer-motion";
+import CartDrawer from "@/product/components/CartDrawer";
+import { parseCurrency } from "@/utils/currency";
+import { edcitCart } from "@/product/selectors";
 
 interface Props {
   products: Product[];
 }
 
-function parseCurrency(value: number): string {
-  return value.toLocaleString("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  });
-}
-
 const Home: FC<Props> = ({ products }) => {
-  const [cart, setCart] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>("");
-  const text = useMemo(() => {
-    return cart
-      .reduce(
-        (message, product) =>
-          message.concat(
-            `* ${product.title} - ${parseCurrency(product.price)}\n`
-          ),
-        ``
-      )
-      .concat(
-        `\nTotal: ${parseCurrency(
-          cart.reduce((total, product) => total + product.price, 0)
-        )}`
-      );
-  }, [cart]);
-
+  const [isCartOpen, toggleCart] = useState<boolean>(false);
+  function handleEditCart(product: Product, action: "increment" | "decrement") {
+    setCart(edcitCart(product, action));
+  }
   return (
     <>
       <Stack spacing={6}>
@@ -48,31 +29,39 @@ const Home: FC<Props> = ({ products }) => {
           {products.map((product) => (
             <Stack
               borderRadius="md"
+              boxShadow={"md"}
+              borderWidth={1}
+              borderColor={"gary.100"}
               padding={4}
               key={product.id}
               backgroundColor="gray.100"
               spacing={3}
             >
-              <Stack spacing={1}>
+              <Stack direction={"row"}>
                 <Image
+                  loading="lazy"
+                  backgroundColor={"white"}
+                  borderRadius={"md"}
+                  height={16}
+                  objectFit="contain"
+                  width={16}
                   alt={product.title}
                   as={motion.img}
                   cursor={"pointer"}
                   layoutId={product.image}
                   maxHeight={128}
-                  objectFit="cover"
-                  borderTopRadius={"md"}
                   src={product.image}
                   onClick={() => setSelectedImage(product.image)}
                 />
-                <Text>{product.title}</Text>
-                <Text fontSize="sm" fontWeight="500" color="green.500">
-                  {parseCurrency(product.price)}
-                </Text>
+                <Stack spacing={1}>
+                  <Text>{product.title}</Text>
+                  <Text fontSize="sm" fontWeight="500" color="green.500">
+                    {parseCurrency(product.price)}
+                  </Text>
+                </Stack>
               </Stack>
-
               <Button
-                onClick={() => setCart((cart) => cart.concat(product))}
+                onClick={() => handleEditCart(product, "increment")}
                 colorScheme="primary"
                 variant="outline"
                 size="sm"
@@ -96,15 +85,12 @@ const Home: FC<Props> = ({ products }) => {
               bottom={4}
             >
               <Button
-                as={Link}
+                size={"lg"}
+                onClick={() => toggleCart(true)}
                 colorScheme="whatsapp"
-                isExternal
-                href={`https://wa.me/5491169832977?text=${encodeURIComponent(
-                  text
-                )}`}
-                leftIcon={<Image src="https://icongr.am/fontawesome/whatsapp.svg?size=32&color=ffffff"/>}
               >
-                Completar pedido ({cart.length}) productos
+                Ver pedido ({cart.reduce((acc, item) => acc + item.quantity, 0)}
+                ) productos
               </Button>
             </Flex>
           )}
@@ -134,6 +120,13 @@ const Home: FC<Props> = ({ products }) => {
           </motion.div>
         )}
       </AnimatePresence>
+      <CartDrawer
+        items={cart}
+        onIncrement={(product) => handleEditCart(product, "increment")}
+        onDecrement={(product) => handleEditCart(product, "decrement")}
+        isOpen={isCartOpen}
+        onClose={() => toggleCart(false)}
+      />
     </>
   );
 };
